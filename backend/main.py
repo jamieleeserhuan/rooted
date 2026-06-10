@@ -105,7 +105,7 @@ def match_noc(req: MatchRequest):
         )
 
         # Step 3: run S-BERT matching against the NOC corpus
-        # Returns a list of Job dicts with rank, job_title, job_description
+        # Returns Job dicts with rank, noc_code, job_title, and descriptions
         matches = get_match(english_text)
 
         return {

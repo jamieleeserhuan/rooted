@@ -17,6 +17,7 @@ TO USE THIS FILE:
   from app.matcher import get_match
 
   matches = get_match("I cooked food in a restaurant")
+  print(matches[0]["noc_code"])
   print(matches[0]["job_title"])
   print(matches[0]["job_description"])
 
@@ -109,6 +110,7 @@ TOP_MATCHES = 5
 
 class Job(TypedDict):
     rank: int
+    noc_code: str
     job_title: str
     job_description: str
     full_job_description: str
@@ -275,6 +277,7 @@ def load_or_build_embeddings(
 
     metadata = [
         {
+            "noc_code": clean_text(row["NOC_Code"]),
             "job_title": clean_text(row["Class_Title"]),
             "job_description": short_job_description(row["occupation_text"]),
             "full_job_description": row["occupation_text"],
@@ -289,8 +292,6 @@ def load_or_build_embeddings(
             return cached_embeddings, cached_metadata
 
     texts = [str(item["full_job_description"]) for item in metadata]
-    
-    #insert chunking here
 
     embeddings = model.encode(
         texts,
@@ -342,6 +343,7 @@ def get_match(text: str) -> list[Job]:
         jobs.append(
             {
                 "rank": rank,
+                "noc_code": str(item.get("noc_code") or ""),
                 "job_title": str(item.get("job_title") or item.get("title") or ""),
                 "job_description": str(
                     item.get("job_description")
@@ -395,7 +397,7 @@ def bold_rank(rank: int) -> str:
 def print_matches(jobs: list[Job]) -> None:
     """Print a compact ranked list for terminal use."""
     for job in jobs:
-        print(f"{bold_rank(job['rank'])} Job: {job['job_title']}")
+        print(f"{bold_rank(job['rank'])} Job: {job['job_title']} (NOC {job['noc_code']})")
         print(f"  Description: {job['job_description']}")
 
 

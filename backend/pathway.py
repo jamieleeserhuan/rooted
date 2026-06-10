@@ -432,7 +432,13 @@ def generate_cards_for_matches(matches: list[dict]) -> list[dict]:
 
     Input (from match_noc()):
         [
-            {"noc_code": 31301, "title": "Registered nurses...", "definition": "...", "score": 0.82},
+            {
+                "rank": 1,
+                "noc_code": "31301",
+                "job_title": "Registered nurses...",
+                "job_description": "Short readable summary...",
+                "full_job_description": "Full NOC text..."
+            },
             ...
         ]
 
@@ -449,17 +455,25 @@ def generate_cards_for_matches(matches: list[dict]) -> list[dict]:
     """
     results = []
     for match in matches:
+        title = match.get("title") or match.get("job_title", "")
+        definition = (
+            match.get("definition")
+            or match.get("full_job_description")
+            or match.get("job_description", "")
+        )
         card = generate_pathway_card(
             noc_code=match["noc_code"],
-            title=match["title"],
-            definition=match["definition"],
+            title=title,
+            definition=definition,
         )
-        results.append({
+        result = {
             "noc_code": match["noc_code"],
-            "title": match["title"],
-            "score": match["score"],
+            "title": title,
             "pathway_card": card_to_dict(card),
-        })
+        }
+        if "score" in match:
+            result["score"] = match["score"]
+        results.append(result)
     return results
 
 
