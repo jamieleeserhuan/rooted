@@ -8,7 +8,7 @@ Tell Rooted what you've done in your own words. It matches your skills (formal o
 
 **Privacy first.** Rooted does not store, log, or retain any personal information. Everything you share is processed in memory and discarded when your session ends. This app is for the people, built with care and designed to be a tool you can trust.
 
-Built for the [HuggingFace Build Small Hackathon](https://huggingface.co/build-small) and the AI4Good Lab (Mila/McGill, 2026).
+Built for the AI4Good Lab (Mila/McGill, 2026).
 
 ---
 
