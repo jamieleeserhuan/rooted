@@ -1,0 +1,6 @@
+{
+  "name": "Rooted",
+  "description": "An AI-powered multilingual pathway navigator helping resettled refugees and newcomers map their work experience to Canadian professional credentials.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
