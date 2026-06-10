@@ -2,7 +2,7 @@
 
 Rooted was built by five developers who are either immigrants or children of immigrants to Canada. We know firsthand how hard it is to navigate the system, especially when it comes to careers.
 
-**Rooted is for refugees who don't know where to start, or who feel too overwhelmed to reach out to social services.** It meets you where you are: whether you have formal credentials, informal work experience, or no documents at all.
+**Rooted is for refugees arriving in Canada who don't know where to start, or who feel too overwhelmed to reach out to social services.** It meets you where you are: whether you have formal credentials, informal work experience, or no documents at all.
 
 Tell Rooted what you've done in your own words. It matches your skills (formal or informal) to the Canadian NOC (National Occupational Classification) database and returns your top career pathway matches. For each match, you get a plain-language pathway card with the steps to take, estimated time and costs, and funding sources available to you. You can export this card and bring it to a settlement agency or social services for further help.
 

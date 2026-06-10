@@ -54,10 +54,21 @@ logger = logging.getLogger("pathway")
 # The token is read from environment variables — never hardcode it here.
 # =============================================================================
 
-client = InferenceClient(
-    provider="novita",
-    api_key=os.environ.get("HF_TOKEN"),
-)
+def _get_client() -> InferenceClient:
+    """
+    Create the HuggingFace client on demand rather than at import time.
+    This ensures HF_TOKEN is read after load_dotenv() has run in main.py.
+    """
+    token = os.environ.get("HF_TOKEN")
+    if not token:
+        raise ValueError(
+            "HF_TOKEN environment variable is not set. "
+            "Add it to backend/.env and make sure load_dotenv() is called in main.py."
+        )
+    return InferenceClient(
+        provider="novita",
+        api_key=token,
+    )
 
 # The specific LLM model we're using to generate pathway cards.
 # Llama 3.1 8B is a good balance of quality and speed for this task.
@@ -362,7 +373,7 @@ def generate_pathway_card(
 
     try:
         # Call the LLM
-        response = client.chat_completion(
+        response =  _get_client().chat_completion(
             model=MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
