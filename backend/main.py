@@ -15,11 +15,14 @@ HOW TO RUN:
   uvicorn main:app --reload --port 8000
 
 ENDPOINTS:
+POST /export-pdf   — generate and download a PDF pathway report
   POST /match    — translate input + return top NOC matches
   POST /pathway  — generate a pathway card for a given NOC code
   GET  /health   — check that the server is running
 """
-
+from fastapi.responses import Response
+from typing import List, Optional
+from app.pdf_exporter import generate_pdf
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -134,6 +137,22 @@ class PathwayRequest(BaseModel):
     title: str            # Occupation title e.g. "Registered nurses"
     definition: str = ""  # Full NOC definition — used to prompt the LLM
 
+class JobModel(BaseModel):
+    rank: int
+    noc_code: str
+    job_title: str
+    job_description: str
+    full_job_description: str = ""
+    match_label: str
+    noc_url: str
+
+
+class ExportPDFRequest(BaseModel):
+    user_text: str
+    detected_language: str = "auto"
+    province: str = ""
+    jobs: List[JobModel]
+    pathway_text: str = "" 
 
 @app.post("/pathway")
 def get_pathway(req: PathwayRequest):
@@ -154,7 +173,27 @@ def get_pathway(req: PathwayRequest):
     # so FastAPI can serialise it to JSON
     return card_to_dict(card)
 
-
+@app.post("/export-pdf")
+def export_pdf(req: ExportPDFRequest):
+    """Generate and return a PDF pathway report for the user."""
+    try:
+        pdf_bytes = generate_pdf(
+            user_text=req.user_text,
+            detected_language=req.detected_language,
+            province=req.province,
+            jobs=[job.model_dump() for job in req.jobs],
+            pathway_text=req.pathway_text,
+        )
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": "attachment; filename=rooted-pathway.pdf",
+                "Content-Length": str(len(pdf_bytes)),
+            },
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 # ---------------------------------------------------------------------------
 # /health endpoint
 # Simple check to confirm the server is running.
@@ -165,3 +204,4 @@ def get_pathway(req: PathwayRequest):
 def health():
     """Returns ok if the server is running."""
     return {"status": "ok", "version": "0.1.0"}
+
