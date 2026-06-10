@@ -458,10 +458,10 @@ def generate_cards_for_matches(matches: list[dict]) -> list[dict]:
 
 # Maps flag codes to human-readable labels for terminal output
 FLAG_LABELS = {
-    "no_docs": "✅ No documents needed to start",
-    "english_test": "⚠️  English language test required",
-    "fee": "💳 Fee required",
-    "assessment": "📋 Credential assessment required",
+    "no_docs": " No documents needed to start",
+    "english_test": " English language test required",
+    "fee": " Fee required",
+    "assessment": " Credential assessment required",
 }
 
 
@@ -477,11 +477,11 @@ def print_card(match_rank: int, noc_code: str, score: float, card: PathwayCard) 
     print(f"Estimated time: {card.estimated_time_months_min}–{card.estimated_time_months_max} months")
     print(f"Typical cost: ${card.typical_cost_cad:,} {card.cost_note}")
     if card.funding_note:
-        print(f"💰 Funding available: {card.funding_note}")
+        print(f" Funding available: {card.funding_note}")
     print("\nStep by step:")
     for step in card.steps:
         print(f"\n  {step.number}. {step.heading}")
         print(f"     {step.description}")
         if step.flag:
             print(f"     {FLAG_LABELS.get(step.flag, step.flag)}")
-    print(f"\n⚠️  {card.disclaimer}")
+    print(f"\n {card.disclaimer}")
