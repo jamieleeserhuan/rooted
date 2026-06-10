@@ -107,6 +107,10 @@ transformers_logging.disable_progress_bar()
 EMBEDDING_MODEL_REPO = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 TOP_MATCHES = 5
 
+JOB_BANK_SEARCH_URL = "https://www.jobbank.gc.ca/jobsearch/jobsearch?noc={noc_code}"
+
+DIRECT_MATCH_THRESHOLD = 0.85
+RELATED_FIELD_THRESHOLD = 0.65
 
 class Job(TypedDict):
     rank: int
@@ -114,6 +118,8 @@ class Job(TypedDict):
     job_title: str
     job_description: str
     full_job_description: str
+    match_label: str   
+    noc_url: str       
 
 
 HF_HOME_DIR = Path(os.environ["HF_HOME"]).expanduser().resolve()
@@ -304,6 +310,17 @@ def load_or_build_embeddings(
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2))
     return embeddings, metadata
 
+def get_match_label(similarity: float) -> str:
+    if similarity >= DIRECT_MATCH_THRESHOLD:
+        return "Direct match"
+    elif similarity >= RELATED_FIELD_THRESHOLD:
+        return "Related field"
+    else:
+        return "Transferable skills"
+
+
+def build_noc_url(noc_code: str) -> str:
+    return JOB_BANK_SEARCH_URL.format(noc_code=noc_code)
 
 def get_match(text: str) -> list[Job]:
     """Return the top 5 matching jobs for a user query."""
@@ -334,6 +351,8 @@ def get_match(text: str) -> list[Job]:
     jobs: list[Job] = []
     for rank, index in enumerate(top_indices, start=1):
         item = metadata[int(index)]
+        similarity = float(similarities[int(index)])
+        noc_code = str(item.get("noc_code") or "")
         full_description = str(
             item.get("full_job_description")
             or item.get("job_description")
@@ -343,13 +362,15 @@ def get_match(text: str) -> list[Job]:
         jobs.append(
             {
                 "rank": rank,
-                "noc_code": str(item.get("noc_code") or ""),
+                "noc_code": noc_code,
                 "job_title": str(item.get("job_title") or item.get("title") or ""),
                 "job_description": str(
                     item.get("job_description")
                     or short_job_description(full_description)
                 ),
                 "full_job_description": full_description,
+                "match_label": get_match_label(similarity),
+                "noc_url": build_noc_url(noc_code),
             }
         )
     return jobs
