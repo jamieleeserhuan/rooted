@@ -289,6 +289,9 @@ def load_or_build_embeddings(
             return cached_embeddings, cached_metadata
 
     texts = [str(item["full_job_description"]) for item in metadata]
+    
+    #insert chunking here
+
     embeddings = model.encode(
         texts,
         batch_size=64,
