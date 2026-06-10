@@ -31,6 +31,10 @@ from app.translator import translate_text, resolve_source_language
 # Import Jamie's pathway module from the backend root
 from pathway import generate_pathway_card, card_to_dict
 
+# import token 
+from dotenv import load_dotenv
+load_dotenv()
+
 
 # ---------------------------------------------------------------------------
 # App initialisation
