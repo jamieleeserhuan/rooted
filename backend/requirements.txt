@@ -4,7 +4,6 @@ torch>=2.6
 transformers
 sentence-transformers
 sentencepiece
-openpyxl
 langdetect
 huggingface_hub>=0.23.0
 pydantic>=2.6.0

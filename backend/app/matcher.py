@@ -1,3 +1,38 @@
+"""
+matcher.py
+----------
+This file is responsible for ONE thing: taking an English work experience
+description and returning the top 5 most similar NOC occupations.
+
+Main function:
+  get_match(text) -> list[Job]
+
+HOW IT FITS INTO ROOTED:
+  1. translator.py converts the user's input to English
+  2. matcher.py embeds that English text with S-BERT
+  3. matcher.py compares it against cached NOC occupation embeddings
+  4. main.py returns the top matches to the frontend
+
+TO USE THIS FILE:
+  from app.matcher import get_match
+
+  matches = get_match("I cooked food in a restaurant")
+  print(matches[0]["job_title"])
+  print(matches[0]["job_description"])
+
+DATA NEEDED:
+  backend/data/level5.csv
+
+DEPENDENCIES:
+  pip install -r backend/requirements.txt
+
+ENVIRONMENT VARIABLES OPTIONAL:
+  NOC_BASE_DIR    — project root override if auto-discovery fails
+  NOC_INPUT_PATH  — custom path to level5.csv
+  NOC_CACHE_DIR   — custom directory for generated embeddings/cache files
+  HF_HOME         — custom Hugging Face model cache directory
+"""
+
 from __future__ import annotations
 
 import json
@@ -68,7 +103,6 @@ transformers_logging.set_verbosity_error()
 transformers_logging.disable_progress_bar()
 
 
-DEFAULT_SHEET_NAME = "noc_merged_level5"
 EMBEDDING_MODEL_REPO = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 TOP_MATCHES = 5
 
@@ -96,7 +130,7 @@ EMBEDDING_LEGACY_CACHE_ROOT = (
 
 
 def clean_text(value: object) -> str:
-    """Normalize raw spreadsheet text before embedding or display."""
+    """Normalize raw CSV text before embedding or display."""
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return ""
     text = str(value).strip()
@@ -149,10 +183,7 @@ def resolve_input_path() -> Path:
     if configured_input:
         candidate_paths = [resolve_path_from_base(configured_input)]
     else:
-        candidate_paths = [
-            DEFAULT_INPUT_PATH,
-            DATA_DIR / "level5.xlsx",
-        ]
+        candidate_paths = [DEFAULT_INPUT_PATH]
 
     for candidate in candidate_paths:
         if candidate.exists():
@@ -217,17 +248,14 @@ def load_embedding_model() -> SentenceTransformer:
         return SentenceTransformer(ref)
 
 
-def load_dataset(input_path: Path, sheet_name: str) -> pd.DataFrame:
-    # Step 1: load the raw occupation rows from CSV or Excel.
-    suffix = input_path.suffix.lower()
-    if suffix == ".csv":
-        df = pd.read_csv(input_path)
-    elif suffix in {".xlsx", ".xls"}:
-        df = pd.read_excel(input_path, sheet_name=sheet_name)
-    else:
+def load_dataset(input_path: Path) -> pd.DataFrame:
+    # Step 1: load the raw occupation rows from the shared Level 5 CSV.
+    if input_path.suffix.lower() != ".csv":
         raise SystemExit(
-            f"Unsupported input file type '{input_path.suffix}'. Use CSV or Excel."
+            f"Unsupported input file type '{input_path.suffix}'. Use level5.csv."
         )
+
+    df = pd.read_csv(input_path)
 
     # Step 2: build the text block each occupation will be embedded from.
     df = df.copy()
@@ -281,7 +309,7 @@ def get_match(text: str) -> list[Job]:
 
     input_path = resolve_input_path()
     cache_dir = resolve_cache_dir()
-    df = load_dataset(input_path, DEFAULT_SHEET_NAME)
+    df = load_dataset(input_path)
     model = load_embedding_model()
     embeddings_path, metadata_path = resolve_cache_paths(input_path, cache_dir)
     embeddings, metadata = load_or_build_embeddings(

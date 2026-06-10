@@ -1,3 +1,36 @@
+"""
+translator.py
+-------------
+This file is responsible for ONE thing: detecting the user's input language
+and translating text between that language and English.
+
+Main functions:
+  resolve_source_language(language, text) -> str
+  translate_text(text, source_lang, target_lang) -> str
+
+HOW IT FITS INTO ROOTED:
+  1. main.py receives the user's work experience description
+  2. translator.py detects the language, or uses the provided source language
+  3. translator.py translates non-English text into English with NLLB
+  4. matcher.py uses the English text to find the closest NOC occupations
+
+TO USE THIS FILE:
+  from app.translator import resolve_source_language, translate_text
+
+  text = "Cociné comida en un restaurante."
+  lang = resolve_source_language("auto", text)
+  english = translate_text(text, lang, "eng_Latn")
+  print(lang)
+  print(english)
+
+MODEL USED:
+  facebook/nllb-200-distilled-600M
+
+DEPENDENCIES:
+  pip install -r backend/requirements.txt
+
+"""
+
 from __future__ import annotations
 
 import os
