@@ -108,7 +108,7 @@ EMBEDDING_MODEL_REPO = "sentence-transformers/paraphrase-multilingual-MiniLM-L12
 TOP_MATCHES = 5
 EMBEDDING_CACHE_VERSION = "chunked_v1"
 
-JOB_BANK_SEARCH_URL = "https://www.jobbank.gc.ca/jobsearch/jobsearch?noc={noc_code}"
+JOB_BANK_SEARCH_URL = "https://www.jobbank.gc.ca/jobsearch/jobsearch?fn21={noc_code}"
 
 # Cosine scores for this chunked MiniLM setup are usually lower than percentages.
 # These thresholds keep strong semantic matches from being mislabeled as weak.
