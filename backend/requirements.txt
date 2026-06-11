@@ -5,6 +5,9 @@ transformers
 sentence-transformers
 sentencepiece
 langdetect
+fastapi
+uvicorn
+python-dotenv
 huggingface_hub>=0.23.0
 pydantic>=2.6.0
 httpx>=0.27.0
