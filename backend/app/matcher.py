@@ -106,11 +106,19 @@ transformers_logging.disable_progress_bar()
 
 EMBEDDING_MODEL_REPO = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 TOP_MATCHES = 5
+EMBEDDING_CACHE_VERSION = "chunked_v1"
 
-JOB_BANK_SEARCH_URL = "https://www.jobbank.gc.ca/jobsearch/jobsearch?noc={noc_code}"
+JOB_BANK_SEARCH_URL = "https://www.jobbank.gc.ca/jobsearch/jobsearch?fn21={noc_code}"
 
-DIRECT_MATCH_THRESHOLD = 0.85
-RELATED_FIELD_THRESHOLD = 0.65
+# Cosine scores for this chunked MiniLM setup are usually lower than percentages.
+# These thresholds keep strong semantic matches from being mislabeled as weak.
+DIRECT_MATCH_THRESHOLD = 0.34
+RELATED_FIELD_THRESHOLD = 0.28
+
+CHUNK_THRESHOLD_WORDS = 90
+CHUNK_WINDOW_WORDS = 90
+CHUNK_STRIDE_WORDS = 40
+
 
 class Job(TypedDict):
     rank: int
@@ -118,8 +126,8 @@ class Job(TypedDict):
     job_title: str
     job_description: str
     full_job_description: str
-    match_label: str   
-    noc_url: str       
+    match_label: str
+    noc_url: str
 
 
 HF_HOME_DIR = Path(os.environ["HF_HOME"]).expanduser().resolve()
@@ -221,7 +229,7 @@ def cache_file_stem(input_path: Path) -> str:
 
 def resolve_cache_paths(input_path: Path, cache_dir: Path) -> tuple[Path, Path]:
     """Derive embedding and metadata cache files from the input dataset name."""
-    stem = cache_file_stem(input_path)
+    stem = f"{cache_file_stem(input_path)}_{EMBEDDING_CACHE_VERSION}"
     embeddings_path = cache_dir / f"{stem}_embeddings.npy"
     metadata_path = cache_dir / f"{stem}_metadata.json"
     return embeddings_path, metadata_path
@@ -254,6 +262,73 @@ def load_embedding_model() -> SentenceTransformer:
         # Older sentence-transformers versions do not expose local_files_only.
         # Passing a resolved snapshot path still keeps local loads local.
         return SentenceTransformer(ref)
+
+
+def _tokenize_words(text: str) -> list[str]:
+    """Split text into simple whitespace-delimited words."""
+    return re.split(r"\s+", text.strip())
+
+
+def _words_to_text(words: list[str]) -> str:
+    """Rejoin words into a single normalized text chunk."""
+    return " ".join(words)
+
+
+def chunk_text(text: str) -> list[str]:
+    """Split long text into overlapping word-window chunks."""
+    if not text or not text.strip():
+        return []
+
+    words = _tokenize_words(text)
+    word_count = len(words)
+    if word_count < CHUNK_THRESHOLD_WORDS:
+        return [_words_to_text(words)]
+
+    chunks: list[str] = []
+    start = 0
+    while start < word_count:
+        end = min(start + CHUNK_WINDOW_WORDS, word_count)
+        chunks.append(_words_to_text(words[start:end]))
+        if end == word_count:
+            break
+        start += CHUNK_STRIDE_WORDS
+
+    return chunks
+
+
+def embed_texts(model: SentenceTransformer, texts: list[str]) -> np.ndarray:
+    """Embed many texts, chunking long entries and batching all chunks together."""
+    all_chunks: list[str] = []
+    chunk_owners: list[int] = []
+
+    for text_index, text in enumerate(texts):
+        chunks = chunk_text(text) or [""]
+        all_chunks.extend(chunks)
+        chunk_owners.extend([text_index] * len(chunks))
+
+    chunk_embeddings = model.encode(
+        all_chunks,
+        batch_size=64,
+        show_progress_bar=False,
+        convert_to_numpy=True,
+        normalize_embeddings=True,
+    )
+
+    embeddings = np.zeros((len(texts), chunk_embeddings.shape[1]), dtype=np.float32)
+    counts = np.zeros(len(texts), dtype=np.float32)
+    for owner, chunk_embedding in zip(chunk_owners, chunk_embeddings):
+        embeddings[owner] += chunk_embedding
+        counts[owner] += 1
+
+    embeddings /= counts[:, None]
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    np.divide(embeddings, norms, out=embeddings, where=norms > 0)
+    return embeddings
+
+
+def embed_text(model: SentenceTransformer, text: str) -> np.ndarray:
+    """Embed one text as a single unit-norm vector."""
+    return embed_texts(model, [text])[0]
 
 
 def load_dataset(input_path: Path) -> pd.DataFrame:
@@ -299,18 +374,14 @@ def load_or_build_embeddings(
 
     texts = [str(item["full_job_description"]) for item in metadata]
 
-    embeddings = model.encode(
-        texts,
-        batch_size=64,
-        show_progress_bar=False,
-        convert_to_numpy=True,
-        normalize_embeddings=True,
-    )
+    embeddings = embed_texts(model, texts)
     np.save(embeddings_path, embeddings)
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2))
     return embeddings, metadata
 
+
 def get_match_label(similarity: float) -> str:
+    """Convert a cosine similarity score into a user-facing match label."""
     if similarity >= DIRECT_MATCH_THRESHOLD:
         return "Direct match"
     elif similarity >= RELATED_FIELD_THRESHOLD:
@@ -320,7 +391,9 @@ def get_match_label(similarity: float) -> str:
 
 
 def build_noc_url(noc_code: str) -> str:
+    """Build a Job Bank search URL for the matched NOC code."""
     return JOB_BANK_SEARCH_URL.format(noc_code=noc_code)
+
 
 def get_match(text: str) -> list[Job]:
     """Return the top 5 matching jobs for a user query."""
@@ -340,11 +413,7 @@ def get_match(text: str) -> list[Job]:
         metadata_path,
     )
 
-    query_embedding = model.encode(
-        [query],
-        convert_to_numpy=True,
-        normalize_embeddings=True,
-    )[0]
+    query_embedding = embed_text(model, query)
     similarities = embeddings @ query_embedding
     top_indices = np.argsort(similarities)[::-1][:TOP_MATCHES]
 

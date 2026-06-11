@@ -5,7 +5,14 @@ transformers
 sentence-transformers
 sentencepiece
 langdetect
+fastapi
+uvicorn
+python-dotenv
 huggingface_hub>=0.23.0
 pydantic>=2.6.0
 httpx>=0.27.0
+<<<<<<< HEAD
 reportlab
+=======
+reportlab
+>>>>>>> 0c173126b103ce0923ef2d31fbd6b1481ceed2eb
