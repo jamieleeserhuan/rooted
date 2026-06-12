@@ -37,6 +37,9 @@ from __future__ import annotations
 import io
 from datetime import date
 from typing import Any
+# We reuse Sean's translator so the PDF can be shown in the user's own language.
+# It lives in the same app/ folder as this file.
+from app.translator import translate_text
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -174,12 +177,12 @@ def _section_title(title: str) -> list:
     ]
 
 
-def _match_card(job: dict[str, Any], is_best: bool) -> Table:
-    """Build a styled table row representing one match card."""
+def _match_card(job: dict[str, Any], is_best: bool, target_lang: str = "") -> Table:
     label      = job.get("match_label", "")
     noc_code   = job.get("noc_code", "")
-    title      = job.get("job_title", "")
-    desc       = job.get("job_description", "")
+    # translate the job title and description into the user's language
+    title      = _translate_for_pdf(job.get("job_title", ""), target_lang)
+    desc       = _translate_for_pdf(job.get("job_description", ""), target_lang)
     noc_url    = job.get("noc_url", "")
     label_color = LABEL_COLORS.get(label, GREEN_DARK)
     label_bg    = LABEL_BG.get(label, BEIGE)
@@ -240,6 +243,29 @@ def _match_card(job: dict[str, Any], is_best: bool) -> Table:
 # Main public function
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Translation helper
+# ---------------------------------------------------------------------------
+
+def _translate_for_pdf(text: str, target_lang: str) -> str:
+    """
+    Translate one piece of English text into the user's language for the PDF.
+    If the user's language is English (or unknown), we just return the text
+    as-is. If translation fails for any reason, we fall back to the English
+    text rather than breaking the whole PDF.
+    """
+    # nothing to translate, or already English -> leave it as is
+    if not text or not text.strip():
+        return text
+    if not target_lang or target_lang.lower() in ("english", "eng_latn", "auto", ""):
+        return text
+    try:
+        # our PDF text is in English, so source is English, target is the user's language
+        return translate_text(text, "eng_Latn", target_lang)
+    except Exception:
+        # if translation breaks, show the English version rather than crash
+        return text
+
 def generate_pdf(
     user_text: str,
     detected_language: str,
@@ -287,14 +313,14 @@ def generate_pdf(
             f"Original language: {detected_language}", S["muted"]))
         story.append(Spacer(1, 2 * mm))
 
-    story.append(Paragraph(user_text or "—", S["body"]))
+    story.append(Paragraph(_translate_for_pdf(user_text, detected_language) or "—", S["body"]))
     story.append(Spacer(1, 8 * mm))
 
     # ── Match results ────────────────────────────────────────────────────────
     story += _section_title("Your Canadian career matches")
-
+    
     for i, job in enumerate(jobs):
-        story.append(_match_card(job, is_best=(i == 0)))
+        story.append(_match_card(job, is_best=(i == 0), target_lang=detected_language))
         story.append(Spacer(1, 3 * mm))
 
     story.append(Spacer(1, 5 * mm))
@@ -307,7 +333,8 @@ def generate_pdf(
             if not line:
                 story.append(Spacer(1, 2 * mm))
                 continue
-            story.append(Paragraph(line, S["pathway"]))
+            # translate each line of the pathway into the user's language
+            story.append(Paragraph(_translate_for_pdf(line, detected_language), S["pathway"]))
         story.append(Spacer(1, 8 * mm))
 
     # ── Privacy notice ───────────────────────────────────────────────────────
